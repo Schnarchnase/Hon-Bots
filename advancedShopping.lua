@@ -1522,74 +1522,76 @@ function shopping.ShopExecute(botBrain)
 	shopping.nextBuyTime = nNow + shopping.buyInterval
 		
 	local unitSelf = core.unitSelf
-
-	local bChanged = false
 	local inventory = unitSelf:GetInventory(true)
-	local nextItemDef = shopping.DetermineNextItemDef()
-		
-	if nextItemDef then
-		if debugInfoShoppingBehavior then BotEcho("Found item. Buying "..nextItemDef:GetName()) end
-		
-		local goldAmtBefore = botBrain:GetGold()
-		local nItemCost = nextItemDef:GetCost()
-		
-		--enough gold to buy the item?
-		if goldAmtBefore >= nItemCost then 
+	
+	while not behaviorLib.finishedBuying do
+		local bChanged = false
+		local nextItemDef = shopping.DetermineNextItemDef()
 			
-			--check number of stash items
-			local openSlots = shopping.NumberSlotsOpenStash(inventory)
+		if nextItemDef then
+			if debugInfoShoppingBehavior then BotEcho("Found item. Buying "..nextItemDef:GetName()) end
 			
-			--enough space?
-			if openSlots < 1 then
+			local goldAmtBefore = botBrain:GetGold()
+			local nItemCost = nextItemDef:GetCost()
 			
-				local bSuccess, bStashOnly = shopping.SellItems (1)
-				--stop shopping, if we can't purchaise items anymore, fix it with next stash access
-				shopping.PauseShopping = not bSuccess or not bStashOnly
+			--enough gold to buy the item?
+			if goldAmtBefore >= nItemCost then 
 				
-			else
-				core.teamBotBrain.bPurchasedThisFrame = true
-				unitSelf:PurchaseRemaining(nextItemDef)
-		
-				local goldAmtAfter = botBrain:GetGold()
-				local bGoldReduced = (goldAmtAfter < goldAmtBefore)
+				--check number of stash items
+				local openSlots = shopping.NumberSlotsOpenStash(inventory)
 				
-				--check purchase success
-				if bGoldReduced then 
-					if debugInfoShoppingBehavior then BotEcho("item Purchased. removing it from shopping list") end
-					tremove(shopping.ShoppingList,1)
-					if shopping.developeItemBuildSaver then SyncWithDatabse() end
+				--enough space?
+				if openSlots < 1 then
+				
+					local bSuccess, bStashOnly = shopping.SellItems (1)
+					--stop shopping, if we can't purchaise items anymore, fix it with next stash access
+					shopping.PauseShopping = not bSuccess or not bStashOnly
+					
 				else
-					local maxStock = nextItemDef:GetMaxStock()
-					if maxStock > 0 then
-						-- item may not be purchaseble, due to cooldown, so skip it
-						if debugInfoShoppingBehavior then BotEcho("Item not purchaseable due to cooldown. Item will be skipped") end
+					core.teamBotBrain.bPurchasedThisFrame = true
+					unitSelf:PurchaseRemaining(nextItemDef)
+			
+					local goldAmtAfter = botBrain:GetGold()
+					local bGoldReduced = (goldAmtAfter < goldAmtBefore)
+					
+					--check purchase success
+					if bGoldReduced then 
+						if debugInfoShoppingBehavior then BotEcho("item Purchased. removing it from shopping list") end
 						tremove(shopping.ShoppingList,1)
-						--re-enter bigger items after cooldown delay 
-						if nItemCost > 250 then
-							if debugInfoShoppingBehavior then BotEcho("Item is valuble, will try to repurchaise it after some delay") end
-							local nItemRestockedTime = nNow + 120000
-							tinsert (shopping.delayedItems, {nItemRestockedTime, nextItemDef})
-						end
+						if shopping.developeItemBuildSaver then SyncWithDatabse() end
 					else
-						if debugInfoShoppingBehavior then BotEcho("No Purchase of "..nextItemDef:GetName()..". Unknown exception waiting for stash access to fix it.") end
-						shopping.PauseShopping = true
-					end						
-				end	
-				bChanged = bChanged or bGoldReduced
+						local maxStock = nextItemDef:GetMaxStock()
+						if maxStock > 0 then
+							-- item may not be purchaseble, due to cooldown, so skip it
+							if debugInfoShoppingBehavior then BotEcho("Item not purchaseable due to cooldown. Item will be skipped") end
+							tremove(shopping.ShoppingList,1)
+							--re-enter bigger items after cooldown delay 
+							if nItemCost > 250 then
+								if debugInfoShoppingBehavior then BotEcho("Item is valuble, will try to repurchaise it after some delay") end
+								local nItemRestockedTime = nNow + 120000
+								tinsert (shopping.delayedItems, {nItemRestockedTime, nextItemDef})
+							end
+						else
+							if debugInfoShoppingBehavior then BotEcho("No Purchase of "..nextItemDef:GetName()..". Unknown exception waiting for stash access to fix it.") end
+							shopping.PauseShopping = true
+						end						
+					end	
+					bChanged = bChanged or bGoldReduced
+				end
 			end
 		end
-	end
-	
-	--finished buying
-	if bChanged == false then
-		if debugInfoShoppingBehavior then BotEcho("Finished Buying!") end
-		behaviorLib.finishedBuying = true
-		shopping.bStashFunctionActivation = true
-		itemHandler:UpdateDatabase()
-		local bCanAccessStash = unitSelf:CanAccessStash()
-		if not bCanAccessStash then 
-			if debugInfoShoppingBehavior then  BotEcho("CourierStart") end
-			shopping.bCourierMissionControl = true
+		
+		--finished buying
+		if bChanged == false then
+			if debugInfoShoppingBehavior then BotEcho("Finished Buying!") end
+			behaviorLib.finishedBuying = true
+			shopping.bStashFunctionActivation = true
+			itemHandler:UpdateDatabase()
+			local bCanAccessStash = unitSelf:CanAccessStash()
+			if not bCanAccessStash then 
+				if debugInfoShoppingBehavior then  BotEcho("CourierStart") end
+				shopping.bCourierMissionControl = true
+			end
 		end
 	end
 end
