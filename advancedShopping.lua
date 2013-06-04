@@ -1394,6 +1394,10 @@ function shopping.NumberSlotsOpenStash(inventory)
 	return numOpen
 end
 
+function shopping.DetermineNextItemDef()
+	return shopping.ShoppingList and shopping.ShoppingList[1];
+end
+
 -------------------
 -- end of 
 -- Shopping Handler
@@ -1468,12 +1472,12 @@ function shopping.ShopUtility(botBrain)
 		end
 		
 		--if debugInfoShoppingBehavior then BotEcho("Check next item") end
-		local nextItemDef = shopping.ShoppingList and shopping.ShoppingList[1]
+		local nextItemDef = shopping.DetermineNextItemDef()
 		
 		if not nextItemDef then
 			if debugInfoShoppingBehavior then BotEcho("No item definition in Shopping List. Start List update") end
 			shopping.UpdateItemList(true)
-			nextItemDef = shopping.ShoppingList[1]
+			nextItemDef = shopping.DetermineNextItemDef()
 		end
 		
 		
@@ -1515,7 +1519,7 @@ function shopping.ShopExecute(botBrain)
 
 	local bChanged = false
 	local inventory = unitSelf:GetInventory(true)
-	local nextItemDef = shopping.ShoppingList[1]
+	local nextItemDef = shopping.DetermineNextItemDef()
 		
 	if nextItemDef then
 		if debugInfoShoppingBehavior then BotEcho("Found item. Buying "..nextItemDef:GetName()) end
