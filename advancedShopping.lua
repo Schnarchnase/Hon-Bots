@@ -1564,7 +1564,6 @@ function shopping.ShopExecute(botBrain)
 					shopping.PauseShopping = not bSuccess or not bStashOnly
 					
 				else
-					core.teamBotBrain.bPurchasedThisFrame = true
 					unitSelf:PurchaseRemaining(nextItemDef)
 			
 					local goldAmtAfter = botBrain:GetGold()
