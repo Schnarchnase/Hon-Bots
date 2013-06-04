@@ -1457,6 +1457,8 @@ function shopping.CourierCare(myGold, nBudget)
 	return bAction, myGold;
 end
 
+-- If someone is overriding the DetermineNextItemDef this table can be used to stop suggesting items that are out of stock. This is reset each time item buying begins.
+shopping.tOutOfStock = {}
 shopping.nBuyingUtilityValue = 30
 shopping.nPreGameBuyingUtilityValue = 51
 function shopping.ShopUtility(botBrain)
@@ -1488,6 +1490,9 @@ function shopping.ShopUtility(botBrain)
 		if not behaviorLib.finishedBuying then
 			utility = shopping.nBuyingUtilityValue
 		end
+		
+		-- Reset out of stock tracker so we can try again
+		shopping.tOutOfStock = {} --TODO: table.wipe for performance
 		
 		--if debugInfoShoppingBehavior then BotEcho("Check next item") end
 		local nextItemDef = shopping.DetermineNextItemDef()
@@ -1580,6 +1585,10 @@ function shopping.ShopExecute(botBrain)
 							-- item may not be purchaseble, due to cooldown, so skip it
 							if debugInfoShoppingBehavior then BotEcho("Item not purchaseable due to cooldown. Item will be skipped") end
 							tremove(shopping.ShoppingList,1)
+							
+							-- Remember what items are out of stock for anyone overriding the DetermineNextItemDef (so they don't have to keep suggesting the item)
+							shopping.tOutOfStock[nextItemDef:GetName()] = nextItemDef
+							
 							--re-enter bigger items after cooldown delay 
 							if nItemCost > 250 then
 								if debugInfoShoppingBehavior then BotEcho("Item is valuble, will try to repurchaise it after some delay") end
