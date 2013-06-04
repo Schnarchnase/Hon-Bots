@@ -1409,6 +1409,54 @@ end
 ----------------------------------------------------
 ----------------------------------------------------
 
+shopping.nCourierUpgradeCost = 200
+function shopping.CourierCare(myGold, nBudget)
+	nBudget = nBudget or 99999;
+	
+	local courier = shopping.GetCourier()
+	
+	local bAction = false;
+	
+	--check we have to buy a new courier
+	if shopping.BuyNewCourier and nBudget >= 200 then
+		--TODO: Shouldn't we remember if we bought a courier?
+		if courier then					
+			--there is a courier, no need to buy one
+			shopping.BuyNewCourier = nil
+			shopping.PauseShopping = false
+		else
+			shopping.PauseShopping = true
+			if myGold >= 200 and bCanAccessStash then 
+				--recheck courier to be safe
+				if not shopping.GetCourier(true) then 
+					--buy it
+					tinsert(shopping.ShoppingList, 1, shopping.BuyNewCourier)
+					nBudget = nBudget - shopping.BuyNewCourier:GetCost();
+					bAction = true;
+				end
+				shopping.BuyNewCourier = nil
+				shopping.PauseShopping = false
+			end
+		end
+	end
+	
+	--check if we have to upgrade courier
+	if shopping.courierDoUpgrade and myGold >= shopping.nCourierUpgradeCost and nBudget >= shopping.nCourierUpgradeCost then
+		if courier then
+			shopping.courierDoUpgrade = false
+			if courier:GetTypeName() == "Pet_GroundFamiliar" then
+				local courierUpgrade = courier:GetAbility(0)
+				core.OrderAbility(botBrain, courierUpgrade)
+				myGold = myGold - shopping.nCourierUpgradeCost
+				nBudget = nBudget - shopping.nCourierUpgradeCost;
+				bAction = true;
+			end
+		end
+	end
+	
+	return bAction, myGold;
+end
+
 shopping.nBuyingUtilityValue = 30
 shopping.nPreGameBuyingUtilityValue = 51
 function shopping.ShopUtility(botBrain)
@@ -1426,45 +1474,13 @@ function shopping.ShopUtility(botBrain)
 	
 	local myGold = botBrain:GetGold()
 	
-	local unitSelf = core.unitSelf
-	local bCanAccessStash = unitSelf:CanAccessStash()
-	
 	--courier care
 	if shopping.bCourierCare then 
-		local courier = shopping.GetCourier()
-		
-		--check we have to buy a new courier
-		if shopping.BuyNewCourier then
-			if courier then					
-				--there is a courier, no need to buy one
-				shopping.BuyNewCourier = nil
-				shopping.PauseShopping = false
-			else
-				shopping.PauseShopping = true
-				if myGold >= 200 and bCanAccessStash then 
-					--recheck courier to be safe
-					if not shopping.GetCourier(true) then 
-						--buy it
-						tinsert(shopping.ShoppingList, 1, shopping.BuyNewCourier)
-					end
-					shopping.BuyNewCourier = nil
-					shopping.PauseShopping = false
-				end
-			end
-		end
-		
-		--check if we have to upgrade courier
-		if shopping.courierDoUpgrade and myGold >= 200 then
-			if courier then
-				shopping.courierDoUpgrade = false
-				if courier:GetTypeName() == "Pet_GroundFamiliar" then
-					local courierUpgrade = courier:GetAbility(0)
-					core.OrderAbility(botBrain, courierUpgrade)
-					myGold = myGold - 200
-				end
-			end
-		end
+		myGold = select(2, shopping.CourierCare(myGold))
 	end
+	
+	local unitSelf = core.unitSelf
+	local bCanAccessStash = unitSelf:CanAccessStash()
 	
 	--still items to buy?
 	if shopping.DoShopping and not shopping.PauseShopping then 
