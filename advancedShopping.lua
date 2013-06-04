@@ -1409,6 +1409,8 @@ end
 ----------------------------------------------------
 ----------------------------------------------------
 
+shopping.nBuyingUtilityValue = 30
+shopping.nPreGameBuyingUtilityValue = 51
 function shopping.ShopUtility(botBrain)
 
 	local utility = 0
@@ -1468,7 +1470,7 @@ function shopping.ShopUtility(botBrain)
 	if shopping.DoShopping and not shopping.PauseShopping then 
 		
 		if not behaviorLib.finishedBuying then
-			utility = 30
+			utility = shopping.nBuyingUtilityValue
 		end
 		
 		--if debugInfoShoppingBehavior then BotEcho("Check next item") end
@@ -1485,7 +1487,7 @@ function shopping.ShopUtility(botBrain)
 		
 			if myGold > nextItemDef:GetCost() then
 				if debugInfoShoppingBehavior then BotEcho("Enough gold to buy the item: "..nextItemDef:GetName()..". Current gold: "..tostring(myGold)) end	
-				utility = 30
+				utility = shopping.nBuyingUtilityValue
 				behaviorLib.finishedBuying = false
 				if bCanAccessStash then
 					if debugInfoShoppingBehavior then BotEcho("Hero can access shop") end
@@ -1497,6 +1499,10 @@ function shopping.ShopUtility(botBrain)
 			shopping.DoShopping = false
 		end
 		
+	end
+	
+	if utility == 30 and HoN:GetMatchTime() <= 0 then
+		utility = shopping.nPreGameBuyingUtilityValue
 	end
 	
 	return utility
