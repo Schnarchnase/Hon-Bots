@@ -1577,14 +1577,18 @@ function shopping.ShopExecute(botBrain)
 					--check purchase success
 					if bGoldReduced then 
 						if debugInfoShoppingBehavior then BotEcho("item Purchased. removing it from shopping list") end
-						tremove(shopping.ShoppingList,1)
+						if shopping.ShoppingList[1] == nextItemDef then -- this won't be true if DetermineItemDef was overridden and returned a custom item
+							tremove(shopping.ShoppingList, 1)
+						end
 						if shopping.developeItemBuildSaver then SyncWithDatabse() end
 					else
 						local maxStock = nextItemDef:GetMaxStock()
 						if maxStock > 0 then
 							-- item may not be purchaseble, due to cooldown, so skip it
 							if debugInfoShoppingBehavior then BotEcho("Item not purchaseable due to cooldown. Item will be skipped") end
-							tremove(shopping.ShoppingList,1)
+							if shopping.ShoppingList[1] == nextItemDef then -- this won't be true if DetermineItemDef was overridden and returned a custom item
+								tremove(shopping.ShoppingList, 1)
+							end
 							
 							-- Remember what items are out of stock for anyone overriding the DetermineNextItemDef (so they don't have to keep suggesting the item)
 							shopping.tOutOfStock[nextItemDef:GetName()] = nextItemDef
