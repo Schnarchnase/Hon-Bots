@@ -122,8 +122,6 @@ shopping.nextFindCourierTime = HoN.GetGameTime()
 shopping.nextItemBuildCheck = 600*1000
 shopping.checkItemBuildInterval = 10*1000
 
-shopping.nextBuyTime = HoN.GetGameTime()
-shopping.buyInterval = 250 -- One Shopping Round per Behavior utility call 
 shopping.finishedBuying = true
 
 --item is not avaible for shopping, retry it at a later time (mainly puzzlebox)
@@ -1410,7 +1408,7 @@ end
 ----------------------------------------------------
 
 shopping.nCourierUpgradeCost = 200
-function shopping.CourierCare(myGold, nBudget)
+function shopping.CourierCare(botBrain, myGold, nBudget)
 	nBudget = nBudget or 99999;
 	
 	local courier = shopping.GetCourier()
@@ -1459,8 +1457,7 @@ end
 
 -- If someone is overriding the DetermineNextItemDef this table can be used to stop suggesting items that are out of stock. This is reset each time item buying begins.
 shopping.tOutOfStock = {}
-shopping.nBuyingUtilityValue = 30
-shopping.nPreGameBuyingUtilityValue = 51
+shopping.nBuyingUtilityValue = 30;
 shopping.nNextShopUtilityRunTime = 0;
 shopping.nShopUtilityRunIntervalMS = 3000;
 function shopping.ShopUtility(botBrain)
@@ -1489,7 +1486,7 @@ function shopping.ShopUtility(botBrain)
 	
 	--courier care
 	if shopping.bCourierCare then 
-		myGold = select(2, shopping.CourierCare(myGold))
+		myGold = select(2, shopping.CourierCare(botBrain, myGold))
 	end
 	
 	--still items to buy?
@@ -1521,7 +1518,7 @@ function shopping.ShopUtility(botBrain)
 				if bCanAccessStash then
 					if debugInfoShoppingBehavior then BotEcho("Hero can access shop") end
 					utility = 99						
-				end				
+				end
 			end
 		else
 			BotEcho("Error no next item...Stopping any shopping")
@@ -1530,8 +1527,12 @@ function shopping.ShopUtility(botBrain)
 		
 	end
 	
-	if utility == 30 and HoN:GetMatchTime() <= 0 then
-		utility = shopping.nPreGameBuyingUtilityValue
+	if utility == shopping.nBuyingUtilityValue and HoN:GetMatchTime() <= 0 then
+		utility = 99
+	end
+	
+	if botBrain.bDebugUtility == true and utility ~= 0 then
+		BotEcho(format("  ShopUtility: %g", utility))
 	end
 	
 	return utility
@@ -1541,15 +1542,8 @@ function shopping.ShopExecute(botBrain)
 	
 	local nNow = HoN.GetGameTime()
 	
-	--Space out your buys (one purchase per behavior-utility cycle)
-	if shopping.nextBuyTime > nNow then
-		return false
-	end
-
 	if debugInfoShoppingBehavior then BotEcho("Shopping Execute:") end
 	
-	shopping.nextBuyTime = nNow + shopping.buyInterval
-		
 	local unitSelf = core.unitSelf
 	local inventory = unitSelf:GetInventory(true)
 	
@@ -1764,23 +1758,23 @@ core.FindItems = shopping.FindItems
 ---------------------------------------------------
 -- Downscale PreGameUtility (Better Shopping Experience)
 ---------------------------------------------------
-function shopping.PreGameUtility(botBrain)
-	if HoN:GetMatchTime() <= 0 then
-		return 29
-	end
-	return 0
-end
-behaviorLib.PreGameBehavior["Utility"] = shopping.PreGameUtility
-
-function shopping.PreGameExecute(botBrain)
-	if HoN.GetRemainingPreMatchTime() > core.teamBotBrain.nInitialBotMove - shopping.PreGameDelay then		
-		core.OrderHoldClamp(botBrain, core.unitSelf)
-	else
-		local vecTargetPos = behaviorLib.PositionSelfTraverseLane(botBrain)
-		core.OrderMoveToPosClamp(botBrain, core.unitSelf, vecTargetPos, false)
-	end
-end
-behaviorLib.PreGameBehavior["Execute"] = shopping.PreGameExecute
+--function shopping.PreGameUtility(botBrain)
+--	if HoN:GetMatchTime() <= 0 then
+--		return 29
+--	end
+--	return 0
+--end
+--behaviorLib.PreGameBehavior["Utility"] = shopping.PreGameUtility
+--
+--function shopping.PreGameExecute(botBrain)
+--	if HoN.GetRemainingPreMatchTime() > core.teamBotBrain.nInitialBotMove - shopping.PreGameDelay then		
+--		core.OrderHoldClamp(botBrain, core.unitSelf)
+--	else
+--		local vecTargetPos = behaviorLib.PositionSelfTraverseLane(botBrain)
+--		core.OrderMoveToPosClamp(botBrain, core.unitSelf, vecTargetPos, false)
+--	end
+--end
+--behaviorLib.PreGameBehavior["Execute"] = shopping.PreGameExecute
 
 ---------------------------------------------------
 --Further Courier Functions
