@@ -1418,7 +1418,7 @@ function shopping.CourierCare(myGold, nBudget)
 	local bAction = false;
 	
 	--check we have to buy a new courier
-	if shopping.BuyNewCourier and nBudget >= 200 then
+	if shopping.BuyNewCourier and nBudget >= shopping.BuyNewCourier:GetCost() then
 		--TODO: Shouldn't we remember if we bought a courier?
 		if courier then					
 			--there is a courier, no need to buy one
@@ -1426,7 +1426,7 @@ function shopping.CourierCare(myGold, nBudget)
 			shopping.PauseShopping = false
 		else
 			shopping.PauseShopping = true
-			if myGold >= 200 and bCanAccessStash then 
+			if myGold >= shopping.BuyNewCourier:GetCost() and bCanAccessStash then 
 				--recheck courier to be safe
 				if not shopping.GetCourier(true) then 
 					--buy it
@@ -1461,9 +1461,20 @@ end
 shopping.tOutOfStock = {}
 shopping.nBuyingUtilityValue = 30
 shopping.nPreGameBuyingUtilityValue = 51
+shopping.nNextShopUtilityRunTime = 0;
+shopping.nShopUtilityRunIntervalMS = 3000;
 function shopping.ShopUtility(botBrain)
 
 	local utility = 0
+	
+	local unitSelf = core.unitSelf
+	local bCanAccessStash = unitSelf:CanAccessStash()
+	
+	local nGameTimeMS = HoN.GetGameTime();
+	if nGameTimeMS < shopping.nNextShopUtilityRunTime and not bCanAccessStash then
+		return utility;
+	end
+	shopping.nNextShopUtilityRunTime = nGameTimeMS + shopping.nShopUtilityRunIntervalMS;
 	
 	--don't shop till we know where to go
 	if shopping.bWaitForLaneDecision then
@@ -1480,9 +1491,6 @@ function shopping.ShopUtility(botBrain)
 	if shopping.bCourierCare then 
 		myGold = select(2, shopping.CourierCare(myGold))
 	end
-	
-	local unitSelf = core.unitSelf
-	local bCanAccessStash = unitSelf:CanAccessStash()
 	
 	--still items to buy?
 	if shopping.DoShopping and not shopping.PauseShopping then 
@@ -1548,7 +1556,7 @@ function shopping.ShopExecute(botBrain)
 	while not behaviorLib.finishedBuying do
 		local bChanged = false
 		local nextItemDef = shopping.DetermineNextItemDef(botBrain)
-			
+		
 		if nextItemDef then
 			if debugInfoShoppingBehavior then BotEcho("Found item. Buying "..nextItemDef:GetName()) end
 			
@@ -1573,6 +1581,7 @@ function shopping.ShopExecute(botBrain)
 			
 					local goldAmtAfter = botBrain:GetGold()
 					local bGoldReduced = (goldAmtAfter < goldAmtBefore)
+					local bJustOutOfStock = false;
 					
 					--check purchase success
 					if bGoldReduced then 
@@ -1599,12 +1608,14 @@ function shopping.ShopExecute(botBrain)
 								local nItemRestockedTime = nNow + 120000
 								tinsert (shopping.delayedItems, {nItemRestockedTime, nextItemDef})
 							end
+							
+							bJustOutOfStock = true;
 						else
 							if debugInfoShoppingBehavior then BotEcho("No Purchase of "..nextItemDef:GetName()..". Unknown exception waiting for stash access to fix it.") end
 							shopping.PauseShopping = true
 						end						
 					end	
-					bChanged = bChanged or bGoldReduced
+					bChanged = bChanged or bGoldReduced or bJustOutOfStock
 				end
 			end
 		end
