@@ -122,6 +122,8 @@ shopping.nextFindCourierTime = HoN.GetGameTime()
 shopping.nextItemBuildCheck = 600*1000
 shopping.checkItemBuildInterval = 10*1000
 
+shopping.nextBuyTime = HoN.GetGameTime()
+shopping.buyInterval = 250 -- One Shopping Round per Behavior utility call 
 shopping.finishedBuying = true
 
 --item is not avaible for shopping, retry it at a later time (mainly puzzlebox)
@@ -1468,7 +1470,8 @@ function shopping.ShopUtility(botBrain)
 	local bCanAccessStash = unitSelf:CanAccessStash()
 	
 	local nGameTimeMS = HoN.GetGameTime();
-	if nGameTimeMS < shopping.nNextShopUtilityRunTime and not bCanAccessStash then
+	if (not behaviorLib.finishedBuying and not bCanAccessStash and nGameTimeMS < shopping.nNextShopUtilityRunTime) or HoN.GetRemainingPreMatchTime() > 85000 then
+		-- Wait with buying stuff until we're at least 10 seconds into the game so we don't buy while still loading. This helps with debugging, solves a problem of inventory not being available yet while loading and makes this seem a bit more human.
 		return utility;
 	end
 	shopping.nNextShopUtilityRunTime = nGameTimeMS + shopping.nShopUtilityRunIntervalMS;
@@ -1539,18 +1542,36 @@ function shopping.ShopUtility(botBrain)
 end
 
 function shopping.ShopExecute(botBrain)
-	
 	local nNow = HoN.GetGameTime()
 	
+	-- Space out your buys (one purchase per behavior-utility cycle)
+	-- This allows us to change buying speed per difficulty level, e.g. easy can be 1 sec between each purchase, medium 0.25 and hard 0 seconds to simulate human skills
+	if shopping.nextBuyTime >= nNow then
+		return
+	end
+	shopping.nextBuyTime = nNow + shopping.buyInterval;
+
 	if debugInfoShoppingBehavior then BotEcho("Shopping Execute:") end
 	
 	local unitSelf = core.unitSelf
 	local inventory = unitSelf:GetInventory(true)
 	
+	local loopBreakerI = 0;
+	local previousItemDef = nil;
+	local bPurchaseSuccesful = false;
+	
 	while not behaviorLib.finishedBuying do
 		local bChanged = false
 		local nextItemDef = shopping.DetermineNextItemDef(botBrain)
 		
+		if nextItemDef then BotEcho('Next up: ' .. nextItemDef:GetName()); end
+		if bPurchaseSuccesful and nextItemDef ~= previousItemDef and previousItemDef ~= nil and shopping.buyInterval ~= 0 then
+			-- Only buy one item each behavior interval to simulate human speed - we do allow several of the same item to be bought since this solves bots buying wards (1 at a time would mean several bots got 1 bot instead of 1 bot 2 wards)
+			BotEcho('Stopping this execute run since the next item isn\'t the same as the previous.');
+			break;
+		end
+		previousItemDef = nextItemDef;
+
 		if nextItemDef then
 			if debugInfoShoppingBehavior then BotEcho("Found item. Buying "..nextItemDef:GetName()) end
 			
@@ -1584,6 +1605,8 @@ function shopping.ShopExecute(botBrain)
 							tremove(shopping.ShoppingList, 1)
 						end
 						if shopping.developeItemBuildSaver then SyncWithDatabse() end
+						
+						bPurchaseSuccesful = true;
 					else
 						local maxStock = nextItemDef:GetMaxStock()
 						if maxStock > 0 then
@@ -1624,6 +1647,27 @@ function shopping.ShopExecute(botBrain)
 			if not bCanAccessStash then 
 				if debugInfoShoppingBehavior then  BotEcho("CourierStart") end
 				shopping.bCourierMissionControl = true
+			end
+		end
+		
+		-- Failsafe, we don't want to be crashing practice games since that would make debugging hard
+		loopBreakerI = loopBreakerI + 1;
+		if loopBreakerI > 1000 then
+			error(object.myName .. ': ShopExecute got stuck in an endless loop. Make sure you aren\'t overriding DetermineNextItemDef and feeding the same time over and over without checking if it is available or not.');
+			break;
+		end
+	end
+	
+	if not behaviorLib.finishedBuying then
+		-- Stand still while working shopping to simulate human behavior
+		if HoN.GetMatchTime() <= 0 then --TODO: or difficulty is easy
+			core.OrderHoldClamp(botBrain, core.unitSelf);
+		else
+			-- Better bots can multitask
+			local vecDesiredPos = behaviorLib.PositionSelfLogic(botBrain);
+			
+			if vecDesiredPos then
+				behaviorLib.MoveExecute(botBrain, vecDesiredPos);
 			end
 		end
 	end
